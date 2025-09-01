@@ -258,11 +258,11 @@ export default function AccountDetails() {
         <div className="col-span-2">
           <h3 className="text-sm text-gray-500">Membership</h3>
           <p className="mt-1 text-sm text-gray-900">
-            {/* later we’ll replace this with real status from backend */}
+            {/* later: show “Basic”, “Premium”, or “Not a member” */}
             Not a member
           </p>
           <div className="mt-2">
-            <a href={membershipUrl}>
+            <a href="/membership">
               <HighlightedButton type="button">
                 Manage membership
               </HighlightedButton>
