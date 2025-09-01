@@ -251,6 +251,20 @@ export default function AccountDetails() {
 
       <div className="space-y-10 p-4 mt-5">
         <div className="grid grid-cols-2 gap-4">
+        	<div className="col-span-2">
+        	  <h3 className="text-sm text-gray-500">Membership</h3>
+        	  <p className="mt-1 text-sm text-gray-900">
+        	    {/* later we’ll replace this with real status from backend */}
+        	    Not a member
+        	  </p>
+        	  <a
+        	    href={process.env.PUBLIC_MEMBERSHIP_MANAGE_URL}
+        	    className="inline-block mt-2 text-sm font-medium text-primary-600 hover:text-primary-800"
+        	  >
+        	    Manage membership
+        	  </a>
+        	</div>
+        	
           <div className="col-span-2">
             <h3 className="text-sm text-gray-500">{t('account.email')}</h3>
             {emailSavedResponse ? (
