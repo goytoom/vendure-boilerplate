@@ -10,6 +10,14 @@ import { AdminUiPlugin } from '@vendure/admin-ui-plugin';
 import { StripePlugin } from '@vendure/payments-plugin/package/stripe';
 import 'dotenv/config';
 import path from 'path';
+import express, { Request, Response } from 'express';
+import Stripe from 'stripe';
+import { CustomerService, RequestContext } from '@vendure/core';
+
+// --- STRIPE CLIENT (for subscriptions only) ---
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2024-06-20',
+});
 
 const isDev: Boolean = process.env.APP_ENV === 'dev';
 
@@ -58,6 +66,106 @@ export const config: VendureConfig = {
             },
             shopApiDebug: true,
         } : {}),
+        middleware: [
+		  {
+		    route: '/stripe-webhook',
+		    handler: [
+		      express.raw({ type: 'application/json' }),
+		      async (req: Request, res: Response) => {
+		        let event: Stripe.Event;
+
+		        try {
+		          const sig = req.headers['stripe-signature'] as string;
+		          event = stripe.webhooks.constructEvent(
+		            req.body,
+		            sig,
+		            process.env.STRIPE_WEBHOOK_SECRET!
+		          );
+		        } catch (err: any) {
+		          res.status(400).send(`Webhook Error: ${err.message}`);
+		          return;
+		        }
+
+		        const subscriptionEvents = [
+		          'customer.subscription.created',
+		          'customer.subscription.updated',
+		          'customer.subscription.deleted',
+		        ];
+
+		        if (subscriptionEvents.includes(event.type)) {
+		          const subscription = event.data.object as Stripe.Subscription;
+		          const stripeCustomerId = subscription.customer as string;
+
+		          // Vendure services
+		          const app = req.app as any;
+		          const vendureApp = app.get('vendureApp');
+		          const injector = vendureApp.injector;
+		          const customerService = injector.get(CustomerService);
+		          const ctx = new RequestContext({
+		            apiType: 'admin',
+		            isAuthorized: true,
+		            authorizedAsOwnerOnly: false,
+		          });
+
+		          // Try to find Vendure customer with this stripeCustomerId
+		          const customers = await customerService.findAll(ctx, {
+		            filter: { customFields: { stripeCustomerId: { eq: stripeCustomerId } } },
+		          });
+
+		          let customer = customers.items[0];
+
+		          // Fallback: match by email if available
+		          if (!customer && (subscription as any).customer_email) {
+		            const byEmail = await customerService.findAll(ctx, {
+		              filter: { emailAddress: { eq: (subscription as any).customer_email } },
+		            });
+		            customer = byEmail.items[0];
+		          }
+
+		          if (customer) {
+		            // 🎯 Define your Stripe Price IDs
+		            const basicPrices = [
+		              'price_1S1uaNEtQNaz1Lwt8utBuui7', // Basic monthly
+		              'price_1S1uZfEtQNaz1LwtlEDzLUQT', // Basic yearly
+		            ];
+		            const premiumPrices = [
+		              'price_1S1uagEtQNaz1LwtffKeFBWO', // Premium monthly
+		              'price_1S1ua7EtQNaz1LwtSt8ENogi', // Premium yearly
+		            ];
+
+		            const planPrice = subscription.items.data[0].price.id;
+		            let newGroups: { code: string }[] = [];
+
+		            if (event.type === 'customer.subscription.deleted') {
+		              newGroups = []; // remove all memberships
+		            } else if (basicPrices.includes(planPrice)) {
+		              newGroups = [{ code: 'basic' }];
+		            } else if (premiumPrices.includes(planPrice)) {
+		              newGroups = [{ code: 'premium' }];
+		            }
+
+		            // Update customer with Stripe ID + groups
+		            await customerService.update(ctx, {
+		              id: customer.id,
+		              customFields: { stripeCustomerId },
+		              groups: newGroups,
+		            });
+
+		            console.log(
+		              `✅ Updated customer ${customer.emailAddress} → groups: ${newGroups.map(
+		                g => g.code
+		              )}`
+		            );
+		          } else {
+		            console.log(`⚠️ No Vendure customer found for Stripe customer ${stripeCustomerId}`);
+		          }
+		        }
+
+		        res.json({ received: true });
+		      },
+		    ],
+		  },
+		],
     },
     authOptions: {
         tokenMethod: ['bearer', 'cookie'],
@@ -85,7 +193,11 @@ export const config: VendureConfig = {
     },
     // When adding or altering custom field definitions, the database will
     // need to be updated. See the "Migrations" section in README.md.
-    customFields: {},
+    customFields: {
+	  Customer: [
+	    { name: 'stripeCustomerId', type: 'string', nullable: true },
+	  ],
+	},
     plugins: [
         AssetServerPlugin.init({
             route: 'assets',
