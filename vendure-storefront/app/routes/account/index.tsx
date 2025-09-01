@@ -258,7 +258,7 @@ export default function AccountDetails() {
         	    Not a member
         	  </p>
         	  <a
-        	    href={process.env.PUBLIC_MEMBERSHIP_MANAGE_URL}
+        	    href={process.env.PUBLIC_MEMBERSHIP_MANAGE_URL || '#'}
         	    className="inline-block mt-2 text-sm font-medium text-primary-600 hover:text-primary-800"
         	  >
         	    Manage membership
