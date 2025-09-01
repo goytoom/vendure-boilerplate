@@ -255,21 +255,22 @@ export default function AccountDetails() {
 
       <div className="space-y-10 p-4 mt-5">
         <div className="grid grid-cols-2 gap-4">
-        	<div className="col-span-2">
+        <div className="col-span-2">
           <h3 className="text-sm text-gray-500">Membership</h3>
           <p className="mt-1 text-sm text-gray-900">
             {/* later we’ll replace this with real status from backend */}
             Not a member
           </p>
           <div className="mt-2">
-            <HighlightedButton as="a" href={membershipUrl}>
-              Manage membership
-            </HighlightedButton>
+            <a href={membershipUrl}>
+              <HighlightedButton type="button">
+                Manage membership
+              </HighlightedButton>
+            </a>
           </div>
         </div>
         
         <div className="border-t border-gray-200 pt-10"></div>
-        
         
           <div className="col-span-2">
             <h3 className="text-sm text-gray-500">{t('account.email')}</h3>
