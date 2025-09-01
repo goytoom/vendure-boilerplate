@@ -48,8 +48,12 @@ export async function loader({ request }: DataFunctionArgs) {
   if (!activeCustomer) {
     return redirect('/sign-in');
   }
-  return json({ activeCustomer });
+  return json({
+    activeCustomer,
+    membershipUrl: process.env.PUBLIC_MEMBERSHIP_MANAGE_URL || '#', // ADD THIS
+  });
 }
+
 
 function isFormError(err: unknown): err is FormError {
   return (err as FormError).message !== undefined;
@@ -142,7 +146,7 @@ export async function action({ request }: DataFunctionArgs) {
 }
 
 export default function AccountDetails() {
-  const { activeCustomer } = useLoaderData<typeof loader>();
+  const { activeCustomer, membershipUrl } = useLoaderData<typeof loader>();
   const actionDataHook = useActionData<typeof action>();
   const { t } = useTranslation();
 
@@ -258,7 +262,7 @@ export default function AccountDetails() {
         	    Not a member
         	  </p>
         	  <a
-        	    href={process.env.PUBLIC_MEMBERSHIP_MANAGE_URL || '#'}
+        	  	href={membershipUrl}
         	    className="inline-block mt-2 text-sm font-medium text-primary-600 hover:text-primary-800"
         	  >
         	    Manage membership
