@@ -307,7 +307,8 @@ export const config: VendureConfig = {
     dbConnectionOptions: {
         type: 'postgres',
         migrations: [path.join(__dirname, './migrations/*.+(js|ts)')],
-        logging: false,
+        // logging: false,
+        logging: ['query', 'error'],
         database: process.env.DB_NAME,
         schema: process.env.DB_SCHEMA,
         host: process.env.DB_HOST,
