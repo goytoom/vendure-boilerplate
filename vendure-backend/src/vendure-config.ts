@@ -34,11 +34,11 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
 
   console.log(
   'stripe-webhook debug:',
-  'isBuffer=', Buffer.isBuffer((req as any).body),
-  'type=', typeof (req as any).body,
-  'ctor=', (req as any).body && (req as any).body.constructor && (req as any).body.constructor.name
+  'rawIsBuffer=', Buffer.isBuffer((req as any).rawBody),
+  'rawType=', typeof (req as any).rawBody,
+  'bodyIsBuffer=', Buffer.isBuffer((req as any).body),
+  'bodyType=', typeof (req as any).body
   );
-
 
   const allowTest = process.env.STRIPE_WEBHOOK_ALLOW_TEST === 'true';
   const sig = req.headers['stripe-signature'] as string | undefined;
