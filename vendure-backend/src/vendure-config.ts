@@ -167,21 +167,28 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
       const BASIC_GROUP_ID = '1';   // TODO: set your real id
       const PREMIUM_GROUP_ID = '2'; // TODO: set your real id
 
-      // Keep your Stripe id on the Vendure side for reference
-      await customerService.update(ctx, {
-        id: customer.id,
-        customFields: { stripeCustomerId },
-      });
+      // Safe removal helper: ignore "not in group" style errors
+      async function safeRemoveFromGroup(groupId: string, custId: string) {
+        try {
+          await customerGroupService.removeCustomersFromGroup(ctx, {
+            customerGroupId: groupId,
+            customerIds: [custId],
+          });
+        } catch (err: any) {
+          // Vendure throws if the customer wasn't in the group; that's fine for our reset step.
+          console.warn(`(safeRemove) ignore: ${err?.message || err}`);
+        }
+      }
 
-      // Reset both groups
-      await customerGroupService.removeCustomersFromGroup(ctx, {
-        customerGroupId: BASIC_GROUP_ID,
-        customerIds: [customer.id],
-      });
-      await customerGroupService.removeCustomersFromGroup(ctx, {
-        customerGroupId: PREMIUM_GROUP_ID,
-        customerIds: [customer.id],
-      });
+      // Keep your Stripe id on the Vendure side for reference
+      // await customerService.update(ctx, {
+      //   id: customer.id,
+      //   customFields: { stripeCustomerId },
+      // });
+
+      // First, try to remove from both groups to reset (won't explode if not a member)
+      await safeRemoveFromGroup(BASIC_GROUP_ID, customer.id);
+      await safeRemoveFromGroup(PREMIUM_GROUP_ID, customer.id);
 
       // Eligibility by status
       const status = subscription.status; // 'trialing' | 'active' | 'past_due' | 'unpaid' | 'canceled' | ...
@@ -221,7 +228,6 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
 
   res.json({ received: true });
 }
-
 
 
 class SendgridEmailSender {
