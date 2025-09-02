@@ -27,7 +27,7 @@
     "typescript": "5.4.5"
   },
   "devDependencies": {
-    "@vendure/cli": "2.2.4",
+    "@vendure/cli": "^2.2.4",
     "concurrently": "8.2.2"
   }
 }
