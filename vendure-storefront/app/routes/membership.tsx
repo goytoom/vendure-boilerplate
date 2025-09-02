@@ -67,7 +67,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       const subs = await stripe.subscriptions.list({
         customer: stripeCustomer.id,
         status: "all",
-        expand: ["data.items.price"],
+        expand: ["data.items.data.price"],
         limit: 10,
       });
 
