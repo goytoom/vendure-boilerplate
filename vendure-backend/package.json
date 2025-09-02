@@ -6,7 +6,7 @@
     "dev:server": "ts-node ./src/index.ts",
     "dev:worker": "ts-node ./src/index-worker.ts",
     "dev": "concurrently npm:dev:*",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.json",
     "postinstall": "npm run build",
     "seed:once": "node ./dist/seed-once.js",
     "start:server": "node ./dist/index.js",
