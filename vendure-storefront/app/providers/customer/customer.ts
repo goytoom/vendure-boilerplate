@@ -37,6 +37,9 @@ gql`
       lastName
       phoneNumber
       emailAddress
+      customFields {
+        membershipTier
+      }
     }
   }
 `;

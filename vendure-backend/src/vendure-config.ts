@@ -201,7 +201,7 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
       }
 
       // Add to the right group
-      let groupApplied = '(none)';
+      let groupApplied: 'basic' | 'premium' | 'none' = 'none';
 
       if (event.type !== 'customer.subscription.deleted') {
         if (BASIC_PRICES.has(planPrice)) {
@@ -217,6 +217,18 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
           });
           groupApplied = 'premium';
         }
+      }
+
+      // write it into the custom field so Shop API can expose it
+      try {
+        await customerService.update(ctx, {
+          id: customer.id,
+          customFields: {
+            membershipTier: groupApplied === 'none' ? null : groupApplied,
+          },
+        });
+      } catch (e: any) {
+        console.warn('⚠️ Could not update membershipTier field:', e?.message);
       }
 
       console.log(`✅ Updated ${customer.emailAddress} → group: ${groupApplied}`);
@@ -308,7 +320,16 @@ export const config: VendureConfig = {
     },
     // When adding or altering custom field definitions, the database will
     // need to be updated. See the "Migrations" section in README.md.
-    customFields: {},
+    customFields: {
+    Customer: [
+      {
+        name: 'membershipTier',
+        type: 'string',
+        nullable: true,
+        public: true,        // <-- exposes in Shop API
+      },
+    ],
+  },
     plugins: [
         AssetServerPlugin.init({
             route: 'assets',
