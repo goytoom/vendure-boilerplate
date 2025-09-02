@@ -15,6 +15,30 @@ import { Request, Response, NextFunction } from 'express';
 import Stripe from 'stripe';
 import { getAppServices } from './app-services';
 
+import { PluginCommonModule, VendurePlugin, CustomerService } from '@vendure/core';
+import { gql } from 'graphql-tag';
+
+@VendurePlugin({
+  imports: [PluginCommonModule],
+  shopApiExtensions: {
+    schema: gql`
+      extend type Customer {
+        groups: [CustomerGroup!]!
+      }
+    `,
+    resolvers: {
+      Customer: {
+        groups: async (customer, _args, ctx) => {
+          const customerService = ctx.injector.get(CustomerService);
+          return customerService.getCustomerGroups(ctx, customer.id);
+        },
+      },
+    },
+  },
+})
+export class CustomerGroupsShopPlugin {}
+
+
 // --- STRIPE CLIENT (for subscriptions only) ---
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2023-08-16' });
 
@@ -347,5 +371,6 @@ export const config: VendureConfig = {
                 // apiPort: +(process.env.PORT || 3000),
             },
         }),
+        CustomerGroupsShopPlugin,
     ],
 };
