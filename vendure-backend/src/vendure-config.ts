@@ -3,6 +3,9 @@ import {
     DefaultJobQueuePlugin,
     DefaultSearchPlugin,
     VendureConfig,
+    ChannelService,
+    CustomerService, 
+    RequestContext,
 } from '@vendure/core';
 import { defaultEmailHandlers, EmailPlugin, EmailPluginDevModeOptions, EmailPluginOptions } from '@vendure/email-plugin';
 import { AssetServerPlugin } from '@vendure/asset-server-plugin';
@@ -12,7 +15,6 @@ import 'dotenv/config';
 import path from 'path';
 import express, { Request, Response } from 'express';
 import Stripe from 'stripe';
-import { CustomerService, RequestContext, ChannelService, configureVendure } from '@vendure/core';
 
 // --- STRIPE CLIENT (for subscriptions only) ---
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -66,7 +68,139 @@ export const config: VendureConfig = {
             },
             shopApiDebug: true,
         } : {}),
-    },
+        middleware: [
+      {
+        route: '/stripe-webhook',
+        // Note: Vendure v2.2.4 accepts a single handler function here.
+        handler: async (req: Request, res: Response) => {
+          // Helpful log to prove the route is being hit
+          console.log('🔥 Stripe webhook hit');
+
+          // ---- TEMP TEST PATH (optional) ----
+          // If you set STRIPE_WEBHOOK_ALLOW_TEST=true and call this endpoint without a Stripe-Signature,
+          // we return 200 so you can confirm Railway routing works.
+          const allowTest = process.env.STRIPE_WEBHOOK_ALLOW_TEST === 'true';
+          const sig = req.headers['stripe-signature'] as string | undefined;
+          if (allowTest && !sig) {
+            console.log('🧪 Test webhook ping accepted (no signature).');
+            res.status(200).send('ok-test');
+            return;
+          }
+          // ---- END TEMP TEST PATH ----
+
+          // Stripe sends a raw body. Vendure/Nest won’t pre-parse this route,
+          // so req.body is the raw Buffer. That’s what Stripe needs for verification.
+          let event: Stripe.Event;
+          try {
+            event = stripe.webhooks.constructEvent(
+              (req as any).body, // Buffer
+              sig as string,
+              process.env.STRIPE_WEBHOOK_SECRET!
+            );
+          } catch (err: any) {
+            console.error('❌ Webhook signature verification failed:', err?.message);
+            res.status(400).send(`Webhook Error: ${err?.message}`);
+            return;
+          }
+
+          const subscriptionEvents = new Set([
+            'customer.subscription.created',
+            'customer.subscription.updated',
+            'customer.subscription.deleted',
+          ]);
+
+          if (subscriptionEvents.has(event.type)) {
+            const subscription = event.data.object as Stripe.Subscription;
+            const stripeCustomerId = subscription.customer as string;
+
+            try {
+              // Access Vendure services via the Nest injector
+              const appAny = req.app as any;
+              const vendureApp = appAny.get?.('vendureApp');
+              const injector = vendureApp?.injector;
+
+              const customerService = injector.get(CustomerService);
+              const channelService = injector.get(ChannelService);
+              const defaultChannel = await channelService.getDefaultChannel();
+
+              // v2.2.4 RequestContext: use "new", not ".create(...)"
+              const ctx = new RequestContext({
+                apiType: 'admin',
+                isAuthorized: true,
+                authorizedAsOwnerOnly: false,
+                channel: defaultChannel,
+              });
+
+              // Try to find by customFields.stripeCustomerId
+              const found = await customerService.findAll(ctx, {
+                filter: {
+                  customFields: {
+                    stripeCustomerId: { eq: stripeCustomerId },
+                  },
+                },
+              });
+              let customer = found.items[0];
+
+              // Fallback by email if Stripe included customer_email in the event
+              if (!customer && (subscription as any).customer_email) {
+                const byEmail = await customerService.findAll(ctx, {
+                  filter: {
+                    emailAddress: { eq: (subscription as any).customer_email },
+                  },
+                });
+                customer = byEmail.items[0];
+              }
+
+              if (customer) {
+                // Your price IDs → groups
+                const BASIC_PRICES = new Set([
+                  'price_1S1uaNEtQNaz1Lwt8utBuui7', // Basic monthly
+                  'price_1S1uZfEtQNaz1LwtlEDzLUQT', // Basic yearly
+                ]);
+                const PREMIUM_PRICES = new Set([
+                  'price_1S1uagEtQNaz1LwtffKeFBWO', // Premium monthly
+                  'price_1S1ua7EtQNaz1LwtSt8ENogi', // Premium yearly
+                ]);
+
+                const planPrice = subscription.items.data[0].price.id;
+                let newGroups: { code: string }[] = [];
+
+                if (event.type === 'customer.subscription.deleted') {
+                  newGroups = []; // remove memberships
+                } else if (BASIC_PRICES.has(planPrice)) {
+                  newGroups = [{ code: 'basic' }];
+                } else if (PREMIUM_PRICES.has(planPrice)) {
+                  newGroups = [{ code: 'premium' }];
+                }
+
+                await customerService.update(ctx, {
+                  id: customer.id,
+                  customFields: { stripeCustomerId },
+                  groups: newGroups,
+                });
+
+                console.log(
+                  `✅ Updated ${customer.emailAddress} → groups: ${newGroups
+                    .map(g => g.code)
+                    .join(', ') || '(none)'}`
+                );
+              } else {
+                console.warn(
+                  `⚠️ No Vendure customer matched Stripe customer ${stripeCustomerId}`
+                );
+              }
+            } catch (svcErr: any) {
+              console.error('❌ Error handling subscription webhook:', svcErr?.message);
+              // Don’t 500 here unless you want Stripe to retry aggressively
+            }
+          }
+
+          // Always respond quickly to Stripe
+          res.json({ received: true });
+        },
+      },
+    ],
+  },
     authOptions: {
         tokenMethod: ['bearer', 'cookie'],
         superadminCredentials: {
@@ -138,102 +272,3 @@ export const config: VendureConfig = {
         }),
     ],
 };
-
-export const configure = configureVendure({
-  configureExpress: (app, vendureApp) => {
-    app.post(
-      '/stripe-webhook',
-      express.raw({ type: 'application/json' }),
-      async (req: Request, res: Response) => {
-        console.log('🔥 Stripe webhook hit');
-        let event: Stripe.Event;
-
-        try {
-          const sig = req.headers['stripe-signature'] as string;
-          event = stripe.webhooks.constructEvent(
-            req.body,
-            sig,
-            process.env.STRIPE_WEBHOOK_SECRET!
-          );
-        } catch (err: any) {
-          res.status(400).send(`Webhook Error: ${err.message}`);
-          return;
-        }
-
-        const subscriptionEvents = [
-          'customer.subscription.created',
-          'customer.subscription.updated',
-          'customer.subscription.deleted',
-        ];
-
-        if (subscriptionEvents.includes(event.type)) {
-          const subscription = event.data.object as Stripe.Subscription;
-          const stripeCustomerId = subscription.customer as string;
-
-          const injector = vendureApp.injector;
-          const customerService = injector.get(CustomerService);
-          const channelService = injector.get(ChannelService);
-          const defaultChannel = await channelService.getDefaultChannel();
-          const ctx = await RequestContext.create({
-            apiType: 'admin',
-            isAuthorized: true,
-            channel: defaultChannel,
-          });
-
-          const customers = await customerService.findAll(ctx, {
-            filter: { customFields: { stripeCustomerId: { eq: stripeCustomerId } } },
-          });
-
-          let customer = customers.items[0];
-
-          if (!customer && (subscription as any).customer_email) {
-            const byEmail = await customerService.findAll(ctx, {
-              filter: { emailAddress: { eq: (subscription as any).customer_email } },
-            });
-            customer = byEmail.items[0];
-          }
-
-          if (customer) {
-            const basicPrices = [
-              'price_1S1uaNEtQNaz1Lwt8utBuui7',
-              'price_1S1uZfEtQNaz1LwtlEDzLUQT',
-            ];
-            const premiumPrices = [
-              'price_1S1uagEtQNaz1LwtffKeFBWO',
-              'price_1S1ua7EtQNaz1LwtSt8ENogi',
-            ];
-
-            const planPrice = subscription.items.data[0].price.id;
-            let newGroups: { code: string }[] = [];
-
-            if (event.type === 'customer.subscription.deleted') {
-              newGroups = [];
-            } else if (basicPrices.includes(planPrice)) {
-              newGroups = [{ code: 'basic' }];
-            } else if (premiumPrices.includes(planPrice)) {
-              newGroups = [{ code: 'premium' }];
-            }
-
-            await customerService.update(ctx, {
-              id: customer.id,
-              customFields: { stripeCustomerId },
-              groups: newGroups,
-            });
-
-            console.log(
-              `✅ Updated customer ${customer.emailAddress} → groups: ${newGroups.map(
-                g => g.code
-              )}`
-            );
-          } else {
-            console.log(
-              `⚠️ No Vendure customer found for Stripe customer ${stripeCustomerId}`
-            );
-          }
-        }
-
-        res.json({ received: true });
-      }
-    );
-  },
-});
