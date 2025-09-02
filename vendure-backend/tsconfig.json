@@ -13,6 +13,7 @@
     "outDir": "./dist",
     "baseUrl": "./"
   },
+  "include": ["src", "src/migrations"],
   "exclude": ["node_modules", "migration.ts", "src/plugins/**/ui/*", "admin-ui"],
   "ts-node": {
     "files": true
