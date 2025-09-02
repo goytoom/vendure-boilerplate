@@ -13,10 +13,12 @@ import path from 'path';
 import express, { Request, Response } from 'express';
 import Stripe from 'stripe';
 import { CustomerService, RequestContext } from '@vendure/core';
+import { configureVendure } from '@vendure/core';
+
 
 // --- STRIPE CLIENT (for subscriptions only) ---
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-06-20',
+  apiVersion: '2023-08-16',
 });
 
 const isDev: Boolean = process.env.APP_ENV === 'dev';
@@ -139,14 +141,13 @@ export const config: VendureConfig = {
     ],
 };
 
-import { configureVendure } from '@vendure/core';
-
 export const configure = configureVendure({
   configureExpress: (app, vendureApp) => {
     app.post(
       '/stripe-webhook',
       express.raw({ type: 'application/json' }),
       async (req: Request, res: Response) => {
+        console.log('🔥 Stripe webhook hit');
         let event: Stripe.Event;
 
         try {
@@ -173,10 +174,10 @@ export const configure = configureVendure({
 
           const injector = vendureApp.injector;
           const customerService = injector.get(CustomerService);
-          const ctx = new RequestContext({
+          const ctx = await RequestContext.create({
             apiType: 'admin',
             isAuthorized: true,
-            authorizedAsOwnerOnly: false,
+            channel: await injector.get(CustomerService).getChannel('default-channel'),
           });
 
           const customers = await customerService.findAll(ctx, {
@@ -194,12 +195,12 @@ export const configure = configureVendure({
 
           if (customer) {
             const basicPrices = [
-              'price_1S1uaNEtQNaz1Lwt8utBuui7', // Basic monthly
-              'price_1S1uZfEtQNaz1LwtlEDzLUQT', // Basic yearly
+              'price_1S1uaNEtQNaz1Lwt8utBuui7',
+              'price_1S1uZfEtQNaz1LwtlEDzLUQT',
             ];
             const premiumPrices = [
-              'price_1S1uagEtQNaz1LwtffKeFBWO', // Premium monthly
-              'price_1S1ua7EtQNaz1LwtSt8ENogi', // Premium yearly
+              'price_1S1uagEtQNaz1LwtffKeFBWO',
+              'price_1S1ua7EtQNaz1LwtSt8ENogi',
             ];
 
             const planPrice = subscription.items.data[0].price.id;
@@ -225,7 +226,9 @@ export const configure = configureVendure({
               )}`
             );
           } else {
-            console.log(`⚠️ No Vendure customer found for Stripe customer ${stripeCustomerId}`);
+            console.log(
+              `⚠️ No Vendure customer found for Stripe customer ${stripeCustomerId}`
+            );
           }
         }
 
