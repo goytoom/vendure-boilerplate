@@ -222,12 +222,13 @@ export const config: VendureConfig = {
             route: '/stripe-webhook',
             handler: (req: Request, res: Response, next: NextFunction) => {
               // Force raw body for this route ONLY (needed for Stripe signatures)
-              const raw = express.raw({ type: 'application/json' });
-              raw(req as any, res as any, (err: any) => {
-                if (err) return next(err);
-                // Now req.body is a Buffer. Call the core handler.
-                handleStripeWebhookCore(req, res, stripe).catch(next);
-              });
+              // const raw = express.raw({ type: 'application/json' });
+              // raw(req as any, res as any, (err: any) => {
+              //   if (err) return next(err);
+              //   // Now req.body is a Buffer. Call the core handler.
+              //   handleStripeWebhookCore(req, res, stripe).catch(next);
+              // });
+              handleStripeWebhookCore(req, res, stripe).catch(next);
             },
           },
         ],
