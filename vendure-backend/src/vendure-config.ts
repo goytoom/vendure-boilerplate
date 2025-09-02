@@ -374,6 +374,5 @@ export const config: VendureConfig = {
                 // apiPort: +(process.env.PORT || 3000),
             },
         }),
-        CustomerGroupsShopPlugin,
     ],
 };
