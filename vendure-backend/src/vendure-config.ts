@@ -16,7 +16,7 @@ import 'dotenv/config';
 import path from 'path';
 import express, { Request, Response, NextFunction } from 'express';
 import Stripe from 'stripe';
-import { getAppInjector } from './app-injector';
+import { getAppServices } from './app-services';
 
 // --- STRIPE CLIENT (for subscriptions only) ---
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2023-08-16' });
@@ -84,9 +84,7 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
     const stripeCustomerId = subscription.customer as string;
 
     try {
-      const injector = getAppInjector();                 // ✅ always defined after bootstrap
-      const customerService = injector.get(CustomerService);
-      const channelService = injector.get(ChannelService);
+      const { customerService, channelService, customerGroupService } = getAppServices();
       const defaultChannel = await channelService.getDefaultChannel();
 
       const ctx = new RequestContext({
@@ -98,6 +96,7 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
 
       // Try by stripeCustomerId, then by email (if present)
       const found = await customerService.findAll(ctx, {
+        // StripePlugin adds this field at runtime; TS types don't include it.
         filter: { customFields: { stripeCustomerId: { eq: stripeCustomerId } } } as any,
       });
       let customer = found.items[0];

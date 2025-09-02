@@ -1,20 +1,24 @@
 // src/index.ts
-import { bootstrap, runMigrations, Injector } from '@vendure/core';
+import { bootstrap, runMigrations, CustomerService, ChannelService, CustomerGroupService } from '@vendure/core';
 import { config } from './vendure-config';
-import { setAppInjector } from './app-injector';
+import { setAppServices } from './app-services';
 
 (async () => {
   console.log('index.ts');
 
   try {
     await runMigrations(config);
+
     const nestApp = await bootstrap(config, {
-      nestApplicationOptions: { rawBody: true }, // ✅ keep this
+      nestApplicationOptions: { rawBody: true }, // keep this for Stripe signatures
     });
 
-    // ✅ Capture Vendure's DI container for use in your webhook
-    const injector = nestApp.get(Injector);
-    setAppInjector(injector);
+    // ✅ Resolve concrete services from the Nest app and store them
+    const customerService = nestApp.get(CustomerService);
+    const channelService = nestApp.get(ChannelService);
+    const customerGroupService = nestApp.get(CustomerGroupService);
+
+    setAppServices({ customerService, channelService, customerGroupService });
   } catch (err) {
     console.error(err);
     process.exit(1);
