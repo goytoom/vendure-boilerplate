@@ -32,6 +32,14 @@ if (sgKey && sgKey.startsWith('SG.')) {
 async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stripe) {
   console.log('🔥 Stripe webhook hit');
 
+  console.log(
+  'stripe-webhook debug:',
+  'isBuffer=', Buffer.isBuffer((req as any).body),
+  'type=', typeof (req as any).body,
+  'ctor=', (req as any).body && (req as any).body.constructor && (req as any).body.constructor.name
+  );
+
+
   const allowTest = process.env.STRIPE_WEBHOOK_ALLOW_TEST === 'true';
   const sig = req.headers['stripe-signature'] as string | undefined;
 
