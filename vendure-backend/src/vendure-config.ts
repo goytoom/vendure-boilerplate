@@ -15,6 +15,8 @@ import { Request, Response, NextFunction } from 'express';
 import Stripe from 'stripe';
 import { getAppServices } from './app-services';
 
+console.log("🚀 vendure-config.ts LOADED at", new Date().toISOString());
+
 // --- STRIPE CLIENT (for subscriptions only) ---
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2023-08-16' });
 
