@@ -37,6 +37,10 @@ gql`
       lastName
       phoneNumber
       emailAddress
+      groups {
+        id
+        name
+      }
     }
   }
 `;

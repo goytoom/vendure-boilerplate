@@ -9,12 +9,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
   // Check membership groups
-  const groups = activeCustomer.groups?.map((g: any) => g.code) || [];
-  let membershipStatus: "none" | "basic" | "premium" = "none";
-  if (groups.includes("basic")) {
-    membershipStatus = "basic";
-  } else if (groups.includes("premium")) {
+  const groupIds = (activeCustomer.groups ?? []).map((g: { id: string }) => g.id);
+  let membershipStatus: 'none' | 'basic' | 'premium' = 'none';
+  if (groupIds.includes("2")) {
     membershipStatus = "premium";
+  } else if (groupIds.includes("1")) {
+    membershipStatus = "basic";
   }
 
   return json({
