@@ -147,9 +147,8 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
         }
 
 
-        console.log(
-          `✅ Updated ${customer.emailAddress} → groups: ${newGroups.map(g => g.code).join(', ') || '(none)'}`
-        );
+        console.log(`✅ Updated ${customer.emailAddress} → group: ${groupApplied}`);
+
       } else {
         console.warn(`⚠️ No Vendure customer matched Stripe customer ${stripeCustomerId}`);
       }
