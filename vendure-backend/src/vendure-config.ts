@@ -226,11 +226,11 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
         await customerService.update(ctx, {
           id: customer.id,
           customFields: {
-            membershipTier: groupApplied === 'none' ? null : groupApplied,
+            membershiptier: groupApplied === 'none' ? null : groupApplied,
           },
         });
       } catch (e: any) {
-        console.warn('⚠️ Could not update membershipTier field:', e?.message);
+        console.warn('⚠️ Could not update membershiptier field:', e?.message);
       }
 
       console.log(`✅ Updated ${customer.emailAddress} → group: ${groupApplied}`);
