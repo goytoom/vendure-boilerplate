@@ -16,6 +16,7 @@ import 'dotenv/config';
 import path from 'path';
 import express, { Request, Response, NextFunction } from 'express';
 import Stripe from 'stripe';
+import { getAppInjector } from './app-injector';
 
 // --- STRIPE CLIENT (for subscriptions only) ---
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2023-08-16' });
@@ -83,10 +84,7 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
     const stripeCustomerId = subscription.customer as string;
 
     try {
-      const appAny = (req as any).app as any;
-      const vendureApp = appAny.get?.('vendureApp');
-      const injector = vendureApp?.injector;
-
+      const injector = getAppInjector();                 // ✅ always defined after bootstrap
       const customerService = injector.get(CustomerService);
       const channelService = injector.get(ChannelService);
       const defaultChannel = await channelService.getDefaultChannel();
