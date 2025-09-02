@@ -52,9 +52,15 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
   // IMPORTANT: req.body must be a Buffer here
   let event: Stripe.Event;
   try {
-    const rawBody = (req as any).body;
-    // Optional sanity check:
-    // console.log('body is Buffer?', Buffer.isBuffer(rawBody));
+    // ✅ With rawBody enabled, Nest exposes the **original bytes** on req.rawBody
+    const rawBody = (req as any).rawBody as Buffer | string | undefined;
+
+    if (!rawBody) {
+      console.error('❌ rawBody missing. Ensure rawBody: true in bootstrap()');
+      res.status(400).send('Webhook Error: rawBody missing');
+      return;
+    }
+
     event = stripe.webhooks.constructEvent(
       rawBody,
       sig as string,
