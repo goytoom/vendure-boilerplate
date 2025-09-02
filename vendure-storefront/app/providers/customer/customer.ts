@@ -38,7 +38,7 @@ gql`
       phoneNumber
       emailAddress
       customFields {
-        membershipLevel   // ✅ add this
+        membershipLevel
       }
     }
   }
