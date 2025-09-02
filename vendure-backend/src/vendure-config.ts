@@ -6,6 +6,7 @@ import {
     ChannelService,
     CustomerService, 
     RequestContext,
+    CustomerGroupService,
 } from '@vendure/core';
 import { defaultEmailHandlers, EmailPlugin, EmailPluginDevModeOptions, EmailPluginOptions } from '@vendure/email-plugin';
 import { AssetServerPlugin } from '@vendure/asset-server-plugin';
@@ -107,21 +108,44 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
         ]);
 
         const planPrice = subscription.items.data[0].price.id;
-        let newGroups: { code: string }[] = [];
+        // IDs of your Customer Groups (check via Admin GraphQL query)
+        const BASIC_GROUP_ID = '1';    // change to real ID
+        const PREMIUM_GROUP_ID = '2';  // change to real ID
 
-        if (event.type === 'customer.subscription.deleted') {
-          newGroups = [];
-        } else if (BASIC_PRICES.has(planPrice)) {
-          newGroups = [{ code: 'basic' }];
-        } else if (PREMIUM_PRICES.has(planPrice)) {
-          newGroups = [{ code: 'premium' }];
-        }
-
+        // Always keep the Stripe customer ID in customFields
         await customerService.update(ctx, {
           id: customer.id,
           customFields: { stripeCustomerId },
-          groups: newGroups,
         });
+
+        // Access the CustomerGroupService
+        const customerGroupService = injector.get(CustomerGroupService);
+
+        // First, remove from both groups to reset
+        await customerGroupService.removeCustomersFromGroup(ctx, {
+          customerGroupId: BASIC_GROUP_ID,
+          customerIds: [customer.id],
+        });
+        await customerGroupService.removeCustomersFromGroup(ctx, {
+          customerGroupId: PREMIUM_GROUP_ID,
+          customerIds: [customer.id],
+        });
+
+        // Then, if still subscribed, add to the right group
+        if (event.type !== 'customer.subscription.deleted') {
+          if (BASIC_PRICES.has(planPrice)) {
+            await customerGroupService.addCustomersToGroup(ctx, {
+              customerGroupId: BASIC_GROUP_ID,
+              customerIds: [customer.id],
+            });
+          } else if (PREMIUM_PRICES.has(planPrice)) {
+            await customerGroupService.addCustomersToGroup(ctx, {
+              customerGroupId: PREMIUM_GROUP_ID,
+              customerIds: [customer.id],
+            });
+          }
+        }
+
 
         console.log(
           `✅ Updated ${customer.emailAddress} → groups: ${newGroups.map(g => g.code).join(', ') || '(none)'}`
