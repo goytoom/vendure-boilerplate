@@ -202,7 +202,6 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
 
       // Add to the right group
       let groupApplied = '(none)';
-      let newMembershipLevel: string | null = null;
 
       if (event.type !== 'customer.subscription.deleted') {
         if (BASIC_PRICES.has(planPrice)) {
@@ -211,32 +210,14 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
             customerIds: [customer.id],
           });
           groupApplied = 'basic';
-          newMembershipLevel = 'basic';
         } else if (PREMIUM_PRICES.has(planPrice)) {
           await customerGroupService.addCustomersToGroup(ctx, {
             customerGroupId: PREMIUM_GROUP_ID,
             customerIds: [customer.id],
           });
           groupApplied = 'premium';
-          newMembershipLevel = 'premium';
         }
       }
-      else {
-        await customerService.update(ctx, {
-        id: customer.id,
-        customFields: {
-          membershipLevel: null,
-        },
-      });
-            }
-
-      // Update the custom field (mirror)
-      await customerService.update(ctx, {
-        id: customer.id,
-        customFields: {
-          membershipLevel: newMembershipLevel,
-        },
-      });
 
       console.log(`✅ Updated ${customer.emailAddress} → group: ${groupApplied}`);
     } catch (svcErr: any) {
@@ -327,15 +308,7 @@ export const config: VendureConfig = {
     },
     // When adding or altering custom field definitions, the database will
     // need to be updated. See the "Migrations" section in README.md.
-    customFields: {
-      Customer: [
-        {
-          name: 'membershipLevel',
-          type: 'string',
-          nullable: true,
-        },
-      ],
-    },
+    customFields: {},
     plugins: [
         AssetServerPlugin.init({
             route: 'assets',
