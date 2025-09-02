@@ -7,7 +7,6 @@
     "dev:worker": "ts-node ./src/index-worker.ts",
     "dev": "concurrently npm:dev:*",
     "build": "tsc",
-    // "postinstall": "echo 'PWD:' $(pwd) && ls -la && ls -la ../ && npm run build",
     "seed:once": "node ./dist/seed-once.js",
     "start:server": "node ./dist/index.js",
     "start:worker": "node ./dist/index-worker.js",
