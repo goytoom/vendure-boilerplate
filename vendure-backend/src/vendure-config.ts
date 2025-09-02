@@ -3,10 +3,7 @@ import {
     DefaultJobQueuePlugin,
     DefaultSearchPlugin,
     VendureConfig,
-    ChannelService,
-    CustomerService, 
     RequestContext,
-    CustomerGroupService,
 } from '@vendure/core';
 import { defaultEmailHandlers, EmailPlugin, EmailPluginDevModeOptions, EmailPluginOptions } from '@vendure/email-plugin';
 import { AssetServerPlugin } from '@vendure/asset-server-plugin';
@@ -14,7 +11,7 @@ import { AdminUiPlugin } from '@vendure/admin-ui-plugin';
 import { StripePlugin } from '@vendure/payments-plugin/package/stripe';
 import 'dotenv/config';
 import path from 'path';
-import express, { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import Stripe from 'stripe';
 import { getAppServices } from './app-services';
 
@@ -122,7 +119,8 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
         const planPrice = items[0]?.price?.id;
 
         if (!planPrice) {
-          console.warn('⚠️ Subscription event without planPrice, skipping group assignment.');
+          console.warn('⚠️ Subscription event without planPrice; acknowledging.');
+          res.json({ received: true });
           return;
         }
 
@@ -135,9 +133,6 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
           id: customer.id,
           customFields: { stripeCustomerId },
         });
-
-        // Access the CustomerGroupService
-        const customerGroupService = injector.get(CustomerGroupService);
 
         // First, remove from both groups to reset
         await customerGroupService.removeCustomersFromGroup(ctx, {
