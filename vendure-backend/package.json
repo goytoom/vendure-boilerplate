@@ -7,6 +7,7 @@
     "dev:worker": "ts-node ./src/index-worker.ts",
     "dev": "concurrently npm:dev:*",
     "build": "tsc",
+    "postinstall": "npm run build",
     "seed:once": "node ./dist/seed-once.js",
     "start:server": "node ./dist/index.js",
     "start:worker": "node ./dist/index-worker.js",
@@ -23,11 +24,11 @@
     "dotenv": "16.4.5",
     "pg": "8.11.5",
     "sharp": "^0.33.4",
-    "stripe": "^13.11.0",
-    "typescript": "5.4.5"
+    "stripe": "^13.11.0"
   },
   "devDependencies": {
     "@vendure/cli": "^2.2.4",
-    "concurrently": "8.2.2"
+    "concurrently": "8.2.2",
+    "typescript": "^5.9.2"
   }
 }
