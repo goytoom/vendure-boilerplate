@@ -3,8 +3,10 @@ import {
   CustomerService,
   PluginCommonModule,
   RequestContext,
+  Resolver,
   VendurePlugin,
 } from '@vendure/core';
+import { Customer } from '@vendure/core/dist/entity/customer/customer.entity';
 
 @VendurePlugin({
   imports: [PluginCommonModule],
@@ -17,12 +19,12 @@ import {
     resolvers: {
       Customer: {
         groups: async (
-          customer: { id: string },
+          customer: Customer,
           _args: unknown,
-          context: { req: RequestContext; injector: any }
+          ctx: { req: RequestContext; injector: any }
         ) => {
-          const customerService = context.injector.get(CustomerService);
-          return customerService.getCustomerGroups(context.req, customer.id);
+          const customerService = ctx.injector.get(CustomerService);
+          return customerService.getCustomerGroups(ctx.req, customer.id);
         },
       },
     },
