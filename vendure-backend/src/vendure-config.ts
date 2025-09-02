@@ -31,11 +31,11 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
   console.log('🔥 Stripe webhook hit');
 
   console.log(
-  'stripe-webhook debug:',
-  'rawIsBuffer=', Buffer.isBuffer((req as any).rawBody),
-  'rawType=', typeof (req as any).rawBody,
-  'bodyIsBuffer=', Buffer.isBuffer((req as any).body),
-  'bodyType=', typeof (req as any).body
+    'stripe-webhook debug:',
+    'rawIsBuffer=', Buffer.isBuffer((req as any).rawBody),
+    'rawType=', typeof (req as any).rawBody,
+    'bodyIsBuffer=', Buffer.isBuffer((req as any).body),
+    'bodyType=', typeof (req as any).body
   );
 
   const allowTest = process.env.STRIPE_WEBHOOK_ALLOW_TEST === 'true';
@@ -47,12 +47,9 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
     return;
   }
 
-  // IMPORTANT: req.body must be a Buffer here
   let event: Stripe.Event;
   try {
-    // ✅ With rawBody enabled, Nest exposes the **original bytes** on req.rawBody
     const rawBody = (req as any).rawBody as Buffer | string | undefined;
-
     if (!rawBody) {
       console.error('❌ rawBody missing. Ensure rawBody: true in bootstrap()');
       res.status(400).send('Webhook Error: rawBody missing');
@@ -91,104 +88,140 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
         channel: defaultChannel,
       });
 
-      // Try by stripeCustomerId, then by email (if present)
-      const found = await customerService.findAll(ctx, {
-        // StripePlugin adds this field at runtime; TS types don't include it.
-        filter: { customFields: { stripeCustomerId: { eq: stripeCustomerId } } } as any,
-      });
-      let customer = found.items[0];
+      // ---------- NEW LOOKUP BLOCK (metadata-first, then email) ----------
+      let customer: any = undefined;
+      let vendureCustomerIdFromMeta: string | undefined = undefined;
 
-      if (!customer && (subscription as any).customer_email) {
-        const byEmail = await customerService.findAll(ctx, {
-          filter: { emailAddress: { eq: (subscription as any).customer_email } },
-        });
-        customer = byEmail.items[0];
+      try {
+        const stripeCust = await stripe.customers.retrieve(stripeCustomerId);
+        if (stripeCust && (stripeCust as Stripe.Customer).metadata) {
+          vendureCustomerIdFromMeta = (stripeCust as Stripe.Customer).metadata['vendureCustomerId'] as string | undefined;
+        }
+      } catch (e) {
+        console.warn('⚠️ Could not retrieve Stripe customer:', (e as any)?.message);
       }
 
-      if (customer) {
-        const BASIC_PRICES = new Set([
-          'price_1S1uaNEtQNaz1Lwt8utBuui7', // Basic monthly
-          'price_1S1uZfEtQNaz1LwtlEDzLUQT', // Basic yearly
-        ]);
-        const PREMIUM_PRICES = new Set([
-          'price_1S1uagEtQNaz1LwtffKeFBWO', // Premium monthly
-          'price_1S1ua7EtQNaz1LwtSt8ENogi', // Premium yearly
-        ]);
-
-        const items = subscription.items?.data ?? [];
-        const planPrice = items[0]?.price?.id;
-
-        if (!planPrice) {
-          console.warn('⚠️ Subscription event without planPrice; acknowledging.');
-          res.json({ received: true });
-          return;
+      if (vendureCustomerIdFromMeta) {
+        try {
+          customer = await customerService.findOne(ctx, vendureCustomerIdFromMeta);
+        } catch (e) {
+          console.warn('⚠️ Could not fetch Vendure customer by id from metadata:', (e as any)?.message);
         }
+      }
 
-        // IDs of your Customer Groups (check via Admin GraphQL query)
-        const BASIC_GROUP_ID = '1';    // change to real ID
-        const PREMIUM_GROUP_ID = '2';  // change to real ID
-
-        // Always keep the Stripe customer ID in customFields
-        await customerService.update(ctx, {
-          id: customer.id,
-          customFields: { stripeCustomerId },
-        });
-
-        // First, remove from both groups to reset
-        await customerGroupService.removeCustomersFromGroup(ctx, {
-          customerGroupId: BASIC_GROUP_ID,
-          customerIds: [customer.id],
-        });
-        await customerGroupService.removeCustomersFromGroup(ctx, {
-          customerGroupId: PREMIUM_GROUP_ID,
-          customerIds: [customer.id],
-        });
-
-        // Decide if the subscription is eligible for access
-        const status = subscription.status; // 'trialing' | 'active' | 'past_due' | 'unpaid' | 'canceled' | ...
-        const eligible = status === 'active' || status === 'trialing';
-
-        if (!eligible) {
-          // We already removed the user from both groups above, so just stop here.
-          console.log(`ℹ️ Subscription ${subscription.id} is ${status}; leaving user in no group.`);
-          res.json({ received: true });
-          return;
-        }
-
-        // Then, if still subscribed, add to the right group
-        let groupApplied = '(none)';
-
-        if (event.type !== 'customer.subscription.deleted') {
-          if (BASIC_PRICES.has(planPrice)) {
-            await customerGroupService.addCustomersToGroup(ctx, {
-              customerGroupId: BASIC_GROUP_ID,
-              customerIds: [customer.id],
-            });
-            groupApplied = 'basic';   // ✅ update log label
-          } else if (PREMIUM_PRICES.has(planPrice)) {
-            await customerGroupService.addCustomersToGroup(ctx, {
-              customerGroupId: PREMIUM_GROUP_ID,
-              customerIds: [customer.id],
-            });
-            groupApplied = 'premium'; // ✅ update log label
+      if (!customer) {
+        let customerEmail: string | undefined = (subscription as any)?.customer_email;
+        if (!customerEmail) {
+          try {
+            const stripeCust = await stripe.customers.retrieve(stripeCustomerId);
+            if (stripeCust && (stripeCust as Stripe.Customer).email) {
+              customerEmail = (stripeCust as Stripe.Customer).email!;
+            }
+          } catch (e) {
+            console.warn('⚠️ Could not fetch Stripe customer to resolve email:', (e as any)?.message);
           }
         }
 
-        console.log(`✅ Updated ${customer.emailAddress} → group: ${groupApplied}`);
-
-
-      } else {
-        console.warn(`⚠️ No Vendure customer matched Stripe customer ${stripeCustomerId}`);
+        if (customerEmail) {
+          const byEmail = await customerService.findAll(ctx, {
+            filter: { emailAddress: { eq: customerEmail } },
+          });
+          customer = byEmail.items[0];
+        }
       }
+
+      if (!customer) {
+        console.warn(`⚠️ No Vendure customer matched metadata/email for Stripe customer ${stripeCustomerId}`);
+        res.json({ received: true });
+        return;
+      }
+
+      // Write our Vendure id into Stripe metadata for future deterministic mapping
+      try {
+        await stripe.customers.update(stripeCustomerId, {
+          metadata: { vendureCustomerId: customer.id },
+        });
+      } catch (e) {
+        console.warn('⚠️ Could not update Stripe customer metadata with vendureCustomerId:', (e as any)?.message);
+      }
+      // ---------- END NEW LOOKUP BLOCK ----------
+
+      const BASIC_PRICES = new Set([
+        'price_1S1uaNEtQNaz1Lwt8utBuui7', // Basic monthly
+        'price_1S1uZfEtQNaz1LwtlEDzLUQT', // Basic yearly
+      ]);
+      const PREMIUM_PRICES = new Set([
+        'price_1S1uagEtQNaz1LwtffKeFBWO', // Premium monthly
+        'price_1S1ua7EtQNaz1LwtSt8ENogi', // Premium yearly
+      ]);
+
+      const items = subscription.items?.data ?? [];
+      const planPrice = items[0]?.price?.id;
+
+      if (!planPrice) {
+        console.warn('⚠️ Subscription event without planPrice; acknowledging.');
+        res.json({ received: true });
+        return;
+      }
+
+      const BASIC_GROUP_ID = '1';   // TODO: set your real id
+      const PREMIUM_GROUP_ID = '2'; // TODO: set your real id
+
+      // Keep your Stripe id on the Vendure side for reference
+      await customerService.update(ctx, {
+        id: customer.id,
+        customFields: { stripeCustomerId },
+      });
+
+      // Reset both groups
+      await customerGroupService.removeCustomersFromGroup(ctx, {
+        customerGroupId: BASIC_GROUP_ID,
+        customerIds: [customer.id],
+      });
+      await customerGroupService.removeCustomersFromGroup(ctx, {
+        customerGroupId: PREMIUM_GROUP_ID,
+        customerIds: [customer.id],
+      });
+
+      // Eligibility by status
+      const status = subscription.status; // 'trialing' | 'active' | 'past_due' | 'unpaid' | 'canceled' | ...
+      const eligible = status === 'active' || status === 'trialing';
+
+      if (!eligible) {
+        console.log(`ℹ️ Subscription ${subscription.id} is ${status}; leaving user in no group.`);
+        res.json({ received: true });
+        return;
+      }
+
+      // Add to the right group
+      let groupApplied = '(none)';
+
+      if (event.type !== 'customer.subscription.deleted') {
+        if (BASIC_PRICES.has(planPrice)) {
+          await customerGroupService.addCustomersToGroup(ctx, {
+            customerGroupId: BASIC_GROUP_ID,
+            customerIds: [customer.id],
+          });
+          groupApplied = 'basic';
+        } else if (PREMIUM_PRICES.has(planPrice)) {
+          await customerGroupService.addCustomersToGroup(ctx, {
+            customerGroupId: PREMIUM_GROUP_ID,
+            customerIds: [customer.id],
+          });
+          groupApplied = 'premium';
+        }
+      }
+
+      console.log(`✅ Updated ${customer.emailAddress} → group: ${groupApplied}`);
     } catch (svcErr: any) {
       console.error('❌ Error handling subscription webhook:', svcErr?.message);
-      // Respond 200 anyway to avoid Stripe retries unless you want them
+      // Still 200 to avoid aggressive retries
     }
   }
 
-  // Always respond quickly to Stripe
   res.json({ received: true });
 }
+
 
 
 class SendgridEmailSender {
