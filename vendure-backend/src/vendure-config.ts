@@ -13,7 +13,7 @@ import { AdminUiPlugin } from '@vendure/admin-ui-plugin';
 import { StripePlugin } from '@vendure/payments-plugin/package/stripe';
 import 'dotenv/config';
 import path from 'path';
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import Stripe from 'stripe';
 
 // --- STRIPE CLIENT (for subscriptions only) ---
@@ -185,10 +185,10 @@ export const config: VendureConfig = {
         middleware: [
           {
             route: '/stripe-webhook',
-            handler: (req: Request, res: Response, next) => {
+            handler: (req: Request, res: Response, next: NextFunction) => {
               // Force raw body for this route ONLY (needed for Stripe signatures)
               const raw = express.raw({ type: 'application/json' });
-              raw(req as any, res as any, (err) => {
+              raw(req as any, res as any, (err: any) => {
                 if (err) return next(err);
                 // Now req.body is a Buffer. Call the core handler.
                 handleStripeWebhookCore(req, res, stripe).catch(next);
