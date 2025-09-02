@@ -98,7 +98,7 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
 
       // Try by stripeCustomerId, then by email (if present)
       const found = await customerService.findAll(ctx, {
-        filter: { customFields: { stripeCustomerId: { eq: stripeCustomerId } } },
+        filter: { customFields: { stripeCustomerId: { eq: stripeCustomerId } } } as any,
       });
       let customer = found.items[0];
 
@@ -119,7 +119,14 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
           'price_1S1ua7EtQNaz1LwtSt8ENogi', // Premium yearly
         ]);
 
-        const planPrice = subscription.items.data[0].price.id;
+        const items = subscription.items?.data ?? [];
+        const planPrice = items[0]?.price?.id;
+
+        if (!planPrice) {
+          console.warn('⚠️ Subscription event without planPrice, skipping group assignment.');
+          return;
+        }
+
         // IDs of your Customer Groups (check via Admin GraphQL query)
         const BASIC_GROUP_ID = '1';    // change to real ID
         const PREMIUM_GROUP_ID = '2';  // change to real ID
@@ -142,6 +149,17 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
           customerGroupId: PREMIUM_GROUP_ID,
           customerIds: [customer.id],
         });
+
+        // Decide if the subscription is eligible for access
+        const status = subscription.status; // 'trialing' | 'active' | 'past_due' | 'unpaid' | 'canceled' | ...
+        const eligible = status === 'active' || status === 'trialing';
+
+        if (!eligible) {
+          // We already removed the user from both groups above, so just stop here.
+          console.log(`ℹ️ Subscription ${subscription.id} is ${status}; leaving user in no group.`);
+          res.json({ received: true });
+          return;
+        }
 
         // Then, if still subscribed, add to the right group
         let groupApplied = '(none)';
