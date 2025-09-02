@@ -37,9 +37,8 @@ gql`
       lastName
       phoneNumber
       emailAddress
-      groups {
-        id
-        name
+      customFields {
+        membershipLevel   // ✅ add this
       }
     }
   }

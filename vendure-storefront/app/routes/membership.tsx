@@ -9,15 +9,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
   // Check membership groups
-  const groupIds = (activeCustomer.groups ?? []).map((g: { id: string }) => g.id);
   let membershipStatus: 'none' | 'basic' | 'premium' = 'none';
 
-  console.log("Group IDs:", groupIds);
-  console.log("Initial membershipStatus:", membershipStatus);
-  if (groupIds.includes("2")) {
-    membershipStatus = "premium";
-  } else if (groupIds.includes("1")) {
-    membershipStatus = "basic";
+  if (activeCustomer?.customFields?.membershipLevel === 'premium') {
+    membershipStatus = 'premium';
+  } else if (activeCustomer?.customFields?.membershipLevel === 'basic') {
+    membershipStatus = 'basic';
   }
 
   return json({
