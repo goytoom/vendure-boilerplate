@@ -12,9 +12,7 @@ import 'dotenv/config';
 import path from 'path';
 import express, { Request, Response } from 'express';
 import Stripe from 'stripe';
-import { CustomerService, RequestContext } from '@vendure/core';
-import { configureVendure } from '@vendure/core';
-
+import { CustomerService, RequestContext, ChannelService, configureVendure } from '@vendure/core';
 
 // --- STRIPE CLIENT (for subscriptions only) ---
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -174,10 +172,12 @@ export const configure = configureVendure({
 
           const injector = vendureApp.injector;
           const customerService = injector.get(CustomerService);
+          const channelService = injector.get(ChannelService);
+          const defaultChannel = await channelService.getDefaultChannel();
           const ctx = await RequestContext.create({
             apiType: 'admin',
             isAuthorized: true,
-            channel: await injector.get(CustomerService).getChannel('default-channel'),
+            channel: defaultChannel,
           });
 
           const customers = await customerService.findAll(ctx, {
