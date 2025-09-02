@@ -132,22 +132,26 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
         });
 
         // Then, if still subscribed, add to the right group
+        let groupApplied = '(none)';
+
         if (event.type !== 'customer.subscription.deleted') {
           if (BASIC_PRICES.has(planPrice)) {
             await customerGroupService.addCustomersToGroup(ctx, {
               customerGroupId: BASIC_GROUP_ID,
               customerIds: [customer.id],
             });
+            groupApplied = 'basic';   // ✅ update log label
           } else if (PREMIUM_PRICES.has(planPrice)) {
             await customerGroupService.addCustomersToGroup(ctx, {
               customerGroupId: PREMIUM_GROUP_ID,
               customerIds: [customer.id],
             });
+            groupApplied = 'premium'; // ✅ update log label
           }
         }
 
-
         console.log(`✅ Updated ${customer.emailAddress} → group: ${groupApplied}`);
+
 
       } else {
         console.warn(`⚠️ No Vendure customer matched Stripe customer ${stripeCustomerId}`);
