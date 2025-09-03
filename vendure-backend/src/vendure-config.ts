@@ -226,11 +226,11 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
         await customerService.update(ctx, {
           id: customer.id,
           customFields: {
-            membershiptier: groupApplied === 'none' ? null : groupApplied,
+            Membershiptier: groupApplied === 'none' ? null : groupApplied,
           },
         });
       } catch (e: any) {
-        console.warn('⚠️ Could not update membershiptier field:', e?.message);
+        console.warn('⚠️ Could not update Membershiptier field:', e?.message);
       }
 
       console.log(`✅ Updated ${customer.emailAddress} → group: ${groupApplied}`);
@@ -326,7 +326,7 @@ export const config: VendureConfig = {
     customFields: {
     Customer: [
       {
-        name: 'membershiptier',
+        name: 'Membershiptier',
         type: 'string',
         nullable: true,
         public: true,        // <-- exposes in Shop API
