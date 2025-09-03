@@ -166,11 +166,11 @@ async function handleStripeWebhookCore(req: Request, res: Response, stripe: Stri
         return;
       }
 
-      const BASIC_GROUP_ID = '1';   // TODO: set your real id
-      const PREMIUM_GROUP_ID = '2'; // TODO: set your real id
+      const BASIC_GROUP_ID = 1;
+      const PREMIUM_GROUP_ID = 2;
 
       // Safe removal helper: ignore "not in group" style errors
-      async function safeRemoveFromGroup(groupId: string, custId: string) {
+      async function safeRemoveFromGroup(groupId: number, custId: string) {
         try {
           await customerGroupService.removeCustomersFromGroup(ctx, {
             customerGroupId: groupId,
