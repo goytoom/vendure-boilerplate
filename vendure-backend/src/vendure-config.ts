@@ -326,7 +326,7 @@ export const config: VendureConfig = {
     customFields: {
     Customer: [
       {
-        name: 'membershipTier',
+        name: 'Membershiptier ',
         type: 'string',
         nullable: true,
         public: true,        // <-- exposes in Shop API
