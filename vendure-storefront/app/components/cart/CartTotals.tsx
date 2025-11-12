@@ -5,6 +5,30 @@ import { useTranslation } from 'react-i18next';
 export function CartTotals({ order }: { order?: OrderDetailFragment | null }) {
   const { t } = useTranslation();
 
+  export function CartTotals({ order }: { order?: OrderDetailFragment | null }) {
+  const { t } = useTranslation();
+
+  console.log("=== CartTotals DEBUG ===", {
+    subTotal: order?.subTotal,
+    subTotalWithTax: order?.subTotalWithTax,
+    shippingWithTax: order?.shippingWithTax,
+    totalWithTax: order?.totalWithTax,
+    discounts: order?.discounts?.map(d => ({
+      amountWithTax: d.amountWithTax,
+      description: (d as any).description
+    })),
+    lines: order?.lines?.map(l => ({
+      name: l.productVariant.name,
+      quantity: l.quantity,
+      unitPriceWithTax: l.unitPriceWithTax,
+      discountedUnitPriceWithTax: l.discountedUnitPriceWithTax,
+      linePriceWithTax: l.linePriceWithTax,
+      discountedLinePriceWithTax: l.discountedLinePriceWithTax,
+      lineDiscounts: l.discounts?.map(d => d.amountWithTax)
+    }))
+  });
+
+
   return (
     <dl className="border-t mt-6 border-gray-200 py-6 space-y-6">
       <div className="flex items-center justify-between">

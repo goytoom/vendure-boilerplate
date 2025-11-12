@@ -26,6 +26,14 @@ export function CartTray({
   const editable = !location.pathname.startsWith('/checkout');
   const { t } = useTranslation();
 
+  console.log("=== CartTray DEBUG ===", {
+  subTotalWithTax: activeOrder?.subTotalWithTax,
+  shippingWithTax: activeOrder?.shippingWithTax,
+  totalWithTax: activeOrder?.totalWithTax,
+  discounts: activeOrder?.discounts,
+  });
+
+
   return (
     <Transition.Root show={open} as={Fragment}>
       <Dialog

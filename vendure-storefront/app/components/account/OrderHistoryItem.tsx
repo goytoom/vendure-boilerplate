@@ -30,12 +30,6 @@ export default function OrderHistoryItem({
   const [isLineCalcExpanded, setIsLineCalcExpanded] = useState<boolean>(false);
   const { t } = useTranslation();
 
-  console.log({
-    subTotalWithTax: order?.subTotalWithTax,
-    totalWithTax: order?.totalWithTax,
-    discounts: order?.discounts?.map(d => d.amountWithTax),
-  });
-
   return (
     <div className={`border rounded-lg overflow-hidden ${className}`}>
       {/* Upper Summary */}
