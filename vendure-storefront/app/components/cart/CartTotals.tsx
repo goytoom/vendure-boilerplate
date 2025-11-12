@@ -5,9 +5,6 @@ import { useTranslation } from 'react-i18next';
 export function CartTotals({ order }: { order?: OrderDetailFragment | null }) {
   const { t } = useTranslation();
 
-  export function CartTotals({ order }: { order?: OrderDetailFragment | null }) {
-  const { t } = useTranslation();
-
   console.log("=== CartTotals DEBUG ===", {
     subTotal: order?.subTotal,
     subTotalWithTax: order?.subTotalWithTax,
