@@ -6,11 +6,11 @@ const navigation = {
   support: [
     { page: 'help', href: '#' },
     { page: 'trackOrder', href: '#' },
-    { page: 'shipping', href: '#' },
+    { page: 'shipping', href: '/shipping' },
     { page: 'returns', href: '#' },
   ],
   company: [
-    { page: 'about', href: '#' },
+    { page: 'about', href: '/about' },
     { page: 'blog', href: '#' },
     { page: 'responsibility', href: '#' },
     { page: 'press', href: '#' },
@@ -76,7 +76,7 @@ export default function Footer({
             <div className="md:grid md:grid-cols-2 md:gap-8">
               <div>
                 <h3 className="text-sm font-semibold text-gray-500 tracking-wider uppercase">
-                  {t('account.company')}
+                  {t('Virtu')}
                 </h3>
                 <ul role="list" className="mt-4 space-y-4">
                   {navigation.company.map(({ page, href }) => (
