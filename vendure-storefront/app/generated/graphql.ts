@@ -5019,13 +5019,19 @@ export const OrderDetailFragmentDoc = gql`
     totalQuantity
     subTotal
     subTotalWithTax
+    shippingWithTax
+    totalWithTax
+    discounts {
+      description
+      adjustmentSource
+      amount
+      amountWithTax
+    }
     taxSummary {
       description
       taxRate
       taxTotal
     }
-    shippingWithTax
-    totalWithTax
     customer {
       id
       firstName
@@ -5052,9 +5058,17 @@ export const OrderDetailFragmentDoc = gql`
     }
     lines {
       id
-      unitPriceWithTax
-      linePriceWithTax
       quantity
+      unitPriceWithTax
+      discountedUnitPriceWithTax
+      linePriceWithTax
+      discountedLinePriceWithTax
+      discounts {
+        description
+        adjustmentSource
+        amount
+        amountWithTax
+      }
       featuredAsset {
         id
         preview
@@ -5078,6 +5092,7 @@ export const OrderDetailFragmentDoc = gql`
     }
   }
 `;
+
 export const DetailedProductFragmentDoc = gql`
   fragment DetailedProduct on Product {
     id
